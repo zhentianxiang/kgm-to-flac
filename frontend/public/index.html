@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KGM 在线转换器</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <style>
+        .dropzone {
+            border: 2px dashed #0087F7;
+            border-radius: 5px;
+            background: #f8f9fa;
+            min-height: 200px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .dropzone.active {
+            background: #e9f5ff;
+            border-color: #0056b3;
+        }
+        .file-list {
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            background: #fff;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+        .file-info {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .progress-container {
+            margin-top: 20px;
+        }
+        .progress-details {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+        }
+        .upload-btn {
+            margin-top: 20px;
+        }
+        .file-status {
+            margin-left: 10px;
+            font-size: 0.8em;
+        }
+        .status-pending {
+            color: #6c757d;
+        }
+        .status-success {
+            color: #28a745;
+        }
+        .status-error {
+            color: #dc3545;
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 576px) {
+            .file-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .file-actions {
+                margin-top: 5px;
+                align-self: flex-end;
+            }
+        }
+        
+        /* 进度条动画 */
+        .progress-bar-animated {
+            animation: progress-bar-stripes 1s linear infinite;
+        }
+        
+        @keyframes progress-bar-stripes {
+            from { background-position: 1rem 0 }
+            to { background-position: 0 0 }
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-10 col-lg-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h3 class="mb-0">KGM/KGMA/VPR 转 FLAC</h3>
+                            <span id="fileCountBadge" class="badge bg-light text-primary">0 个文件</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="dropzone" class="dropzone">
+                            <div class="py-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="#0087F7" class="bi bi-cloud-arrow-up" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd" d="M7.646 5.146a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708l2-2z"/>
+                                    <path d="M4.406 3.342A5.53 5.53 0 0 1 8 2c2.69 0 4.923 2 5.166 4.579C14.758 6.804 16 8.137 16 9.773 16 11.569 14.502 13 12.687 13H3.781C1.708 13 0 11.366 0 9.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383zm.653.757c-.757.653-1.153 1.44-1.153 2.056v.448l-.445.049C2.064 6.805 1 7.952 1 9.318 1 10.785 2.23 12 3.781 12h8.906C13.98 12 15 10.988 15 9.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 4.825 10.328 3 8 3a4.53 4.53 0 0 0-2.941 1.1z"/>
+                                </svg>
+                                <h5 class="mt-3">拖放文件到这里或点击选择文件</h5>
+                                <p class="text-muted mb-0">支持 .kgm, .kgma, .vpr 格式，最多50个文件，每个不超过1GB</p>
+                            </div>
+                            <input type="file" id="fileInput" class="d-none" multiple accept=".kgm,.kgma,.vpr">
+                        </div>
+                        
+                        <div class="file-list" id="fileList"></div>
+                        
+                        <div class="progress-container">
+                            <div class="progress">
+                                <div id="totalProgress" class="progress-bar progress-bar-striped" 
+                                     role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div class="progress-details">
+                                <small id="progressText" class="text-muted">0/0 文件完成</small>
+                                <small id="fileProgress" class="text-muted"></small>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 upload-btn">
+                            <button id="uploadBtn" class="btn btn-primary btn-lg" disabled>
+                                <span id="uploadBtnText">开始转换</span>
+                                <span id="uploadSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-footer text-muted small">
+                        甄纳闷儿说明：仅供学习研究用途，请确保您对上传的文件拥有合法使用权，解密由纯 Go 实现（unlock-music.dev/cli/algo/kgm），若解密后不是 FLAC，将调用本机 ffmpeg 转码为 FLAC。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropzone = document.getElementById('dropzone');
+            const fileInput = document.getElementById('fileInput');
+            const fileList = document.getElementById('fileList');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const uploadBtnText = document.getElementById('uploadBtnText');
+            const uploadSpinner = document.getElementById('uploadSpinner');
+            const totalProgress = document.getElementById('totalProgress');
+            const progressText = document.getElementById('progressText');
+            const fileProgress = document.getElementById('fileProgress');
+            const fileCountBadge = document.getElementById('fileCountBadge');
+            
+            let files = [];
+            let isProcessing = false;
+            
+            // 处理拖放
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropzone.classList.add('active');
+            });
+            
+            dropzone.addEventListener('dragleave', () => {
+                dropzone.classList.remove('active');
+            });
+            
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('active');
+                
+                if (e.dataTransfer.files.length > 0 && !isProcessing) {
+                    handleFiles(e.dataTransfer.files);
+                }
+            });
+            
+            // 处理点击选择文件
+            dropzone.addEventListener('click', () => {
+                if (!isProcessing) {
+                    fileInput.value = ''; // 清除之前的选择
+                    fileInput.click();
+                }
+            });
+            
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length > 0 && !isProcessing) {
+                    handleFiles(fileInput.files);
+                }
+            });
+            
+            // 上传按钮点击
+            uploadBtn.addEventListener('click', async () => {
+                if (files.length === 0 || isProcessing) return;
+                
+                isProcessing = true;
+                uploadBtn.disabled = true;
+                uploadBtnText.textContent = '处理中...';
+                uploadSpinner.classList.remove('d-none');
+                
+                try {
+                    const formData = new FormData();
+                    files.forEach((file, index) => {
+                        formData.append('files', file);
+                        updateFileStatus(file, 'pending', '等待处理');
+                    });
+                    
+                    updateProgress(0, files.length, '开始上传');
+                    
+                    // 使用AbortController以便取消上传
+                    const controller = new AbortController();
+                    
+                    // 设置超时（5分钟）
+                    const timeoutId = setTimeout(() => {
+                        controller.abort();
+                        throw new Error('请求超时，请重试');
+                    }, 300000);
+                    
+                    const response = await fetch('/api/convert', {
+                        method: 'POST',
+                        body: formData,
+                        signal: controller.signal
+                    }).finally(() => clearTimeout(timeoutId));
+                    
+                    // 处理响应
+                    if (response.ok) {
+                        const contentType = response.headers.get('content-type') || '';
+                        
+                        if (contentType.includes('application/zip')) {
+                            // 多文件返回ZIP包
+                            const blob = await response.blob();
+                            downloadFile(blob, 'converted_files.zip');
+                            
+                            Toastify({
+                                text: `转换成功！已下载ZIP包（${files.length}个文件）`,
+                                duration: 5000,
+                                backgroundColor: "linear-gradient(to right, #00b09b, #96c93d)",
+                                className: "toast-success"
+                            }).showToast();
+                        } else if (contentType.includes('audio/flac')) {
+                            // 单文件返回FLAC
+                            const blob = await response.blob();
+                            downloadFile(blob, files[0].name);
+                            
+                            Toastify({
+                                text: "转换成功！文件已下载",
+                                duration: 3000,
+                                backgroundColor: "linear-gradient(to right, #00b09b, #96c93d)",
+                                className: "toast-success"
+                            }).showToast();
+                        } else {
+                            throw new Error('未知的响应类型');
+                        }
+                        
+                        // 标记所有文件为成功
+                        files.forEach(file => {
+                            updateFileStatus(file, 'success', '转换成功');
+                        });
+                    } else {
+                        const error = await response.text();
+                        throw new Error(error || '转换失败');
+                    }
+                } catch (error) {
+                    console.error('转换错误:', error);
+                    
+                    // 标记所有文件为错误
+                    files.forEach(file => {
+                        updateFileStatus(file, 'error', '转换失败');
+                    });
+                    
+                    Toastify({
+                        text: `转换失败: ${error.message}`,
+                        duration: 5000,
+                        backgroundColor: "linear-gradient(to right, #ff5f6d, #ffc371)",
+                        className: "toast-error"
+                    }).showToast();
+                } finally {
+                    isProcessing = false;
+                    uploadBtn.disabled = false;
+                    uploadBtnText.textContent = '开始转换';
+                    uploadSpinner.classList.add('d-none');
+                    updateProgress(files.length, files.length, '完成');
+                }
+            });
+            
+            // 下载文件辅助函数
+            function downloadFile(blob, filename) {
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                
+                // 处理文件名
+                const ext = filename.split('.').pop().toLowerCase();
+                if (ext !== 'zip' && ext !== 'flac') {
+                    filename = filename.replace(/\.[^/.]+$/, '') + '.flac';
+                }
+                
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                
+                // 清理
+                setTimeout(() => {
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+                }, 100);
+            }
+            
+            // 更新进度显示
+            function updateProgress(done, total, message = '') {
+                const percent = Math.round((done / total) * 100);
+                totalProgress.style.width = `${percent}%`;
+                progressText.textContent = `${done}/${total} 文件完成 (${percent}%)`;
+                
+                if (message) {
+                    fileProgress.textContent = message;
+                }
+                
+                // 进度条动画控制
+                if (done === total) {
+                    totalProgress.classList.remove('progress-bar-animated');
+                } else {
+                    totalProgress.classList.add('progress-bar-animated');
+                }
+            }
+            
+            // 更新文件状态
+            function updateFileStatus(file, status, message) {
+                const item = document.querySelector(`.file-item[data-id="${getFileId(file)}"]`);
+                if (item) {
+                    const statusElement = item.querySelector('.file-status') || document.createElement('span');
+                    statusElement.className = `file-status status-${status}`;
+                    statusElement.textContent = message;
+                    
+                    if (!item.querySelector('.file-status')) {
+                        item.querySelector('.file-info').appendChild(statusElement);
+                    }
+                }
+            }
+            
+            // 处理新文件
+            function handleFiles(newFiles) {
+                // 检查文件数量限制
+                if (files.length + newFiles.length > 50) {
+                    showErrorToast("最多只能上传50个文件");
+                    return;
+                }
+                
+                // 添加新文件
+                Array.from(newFiles).forEach(file => {
+                    // 检查文件类型
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    if (!['kgm', 'kgma', 'vpr'].includes(ext)) {
+                        showErrorToast(`文件 ${file.name} 类型不支持`);
+                        return;
+                    }
+                    
+                    // 检查文件大小
+                    if (file.size > 1073741824) { // 1GB
+                        showErrorToast(`文件 ${file.name} 超过1GB限制`);
+                        return;
+                    }
+                    
+                    files.push(file);
+                    addFileToList(file);
+                });
+                
+                updateUI();
+            }
+            
+            // 添加文件到列表
+            function addFileToList(file) {
+                const item = document.createElement('div');
+                item.className = 'file-item';
+                item.setAttribute('data-id', getFileId(file));
+                
+                const info = document.createElement('div');
+                info.className = 'file-info';
+                info.textContent = `${file.name} (${formatFileSize(file.size)})`;
+                
+                const actions = document.createElement('div');
+                actions.className = 'file-actions';
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'btn btn-sm btn-outline-danger';
+                removeBtn.textContent = '移除';
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (!isProcessing) {
+                        files = files.filter(f => f !== file);
+                        fileList.removeChild(item);
+                        updateUI();
+                    }
+                });
+                
+                actions.appendChild(removeBtn);
+                item.appendChild(info);
+                item.appendChild(actions);
+                fileList.appendChild(item);
+            }
+            
+            // 生成文件唯一ID
+            function getFileId(file) {
+                return `${file.name}-${file.size}-${file.lastModified}`;
+            }
+            
+            // 更新UI状态
+            function updateUI() {
+                uploadBtn.disabled = files.length === 0 || isProcessing;
+                progressText.textContent = `已选择 ${files.length} 个文件`;
+                fileCountBadge.textContent = `${files.length} 个文件`;
+                
+                // 重置进度条
+                if (files.length === 0) {
+                    totalProgress.style.width = '0%';
+                    fileProgress.textContent = '';
+                }
+            }
+            
+            // 格式化文件大小
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+            
+            // 显示错误提示
+            function showErrorToast(message) {
+                Toastify({
+                    text: message,
+                    duration: 3000,
+                    close: true,
+                    gravity: "top",
+                    position: "center",
+                    backgroundColor: "linear-gradient(to right, #ff5f6d, #ffc371)",
+                    className: "toast-error"
+                }).showToast();
+            }
+        });
+    </script>
+</body>
+</html>

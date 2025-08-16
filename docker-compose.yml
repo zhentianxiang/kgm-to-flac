@@ -1,0 +1,16 @@
+services:
+  go-backend:
+    build: ./backend
+    environment:
+      - ADDR=:8080
+    volumes:
+      - /tmp:/tmp  # 用于存储临时文件
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - go-backend
+    restart: unless-stopped
