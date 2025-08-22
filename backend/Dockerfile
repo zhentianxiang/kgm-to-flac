@@ -13,7 +13,7 @@ COPY . .
 
 # 下载依赖并构建
 RUN go mod tidy && \
-    CGO_ENABLED=0 GOOS=linux go build -o /kgm2flac main.go
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o kgm2flac-linux-amd64 main.go
 
 # ========= 2. 运行阶段 =========
 FROM harbor.tianxiang.love:30443/library/debian:bookworm-slim
@@ -28,7 +28,7 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-COPY --from=builder /kgm2flac /usr/local/bin/kgm2flac
+COPY --from=builder kgm2flac-linux-amd64 /usr/local/bin/kgm2flac
 
 ENV ADDR=:8080
 
