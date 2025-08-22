@@ -11,6 +11,12 @@ RUN go mod init kgm2flac
 # 复制所有文件
 COPY . .
 
+# 构建 macOS amd64 二进制（Intel）
+# CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o kgm2flac-darwin-amd64 main.go
+
+# 构建 macOS arm64 二进制（Apple Silicon M1/M2）
+# CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o kgm2flac-darwin-arm64 main.go
+
 # 下载依赖并构建
 RUN go mod tidy && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o kgm2flac-linux-amd64 main.go
